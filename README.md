@@ -26,7 +26,14 @@ A minimal example is:
 
 // Your backend. See Memcallback's documentation for available hooks.
 struct PrintFrees : libmemintercept::MemCallback {
-  void memoryFreed(void *addr) override { fprintf(stderr, "free(%p)\n", addr); }
+  void memoryAllocated(void *addr, std::size_t size) {}
+
+  void memoryReallocated(void *old_addr, void *new_addr,
+                                 std::size_t new_size) override {}
+
+  void memoryFreed(void *addr) override {
+    fprintf(stderr, "free(%p)\n", addr);
+  }
 };
 
 // Sets up hook.
