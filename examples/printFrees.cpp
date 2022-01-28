@@ -2,9 +2,7 @@
 #include <cstdio>
 
 struct PrintFrees : libmemintercept::MemCallback {
-  void memoryFreed(void *addr) override {
-    fprintf(stderr, "free(%p)\n", addr);
-  }
+  void memoryFreed(void *addr) override { fprintf(stderr, "free(%p)\n", addr); }
 };
 
 LIBMEMINTERCEPT_ADD_CB(PrintFrees)
@@ -16,3 +14,11 @@ struct PrintMallocs : libmemintercept::MemCallback {
 };
 
 LIBMEMINTERCEPT_ADD_CB(PrintMallocs)
+
+struct PrintReallocs : libmemintercept::MemCallback {
+  void memoryReallocated(void *old, void *new_addr, std::size_t size) override {
+    fprintf(stderr, "realloc(%p, %ld) = %p\n", old, size, new_addr);
+  }
+};
+
+LIBMEMINTERCEPT_ADD_CB(PrintReallocs)
