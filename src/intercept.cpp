@@ -1,7 +1,7 @@
 #include <cassert>
 #include <cstdio>
-#include <dlfcn.h>
 #include <cstdlib>
+#include <dlfcn.h>
 #include <mutex>
 
 #include "libmemintercept.h"
@@ -15,12 +15,9 @@ struct InitGuard {
   ~InitGuard() { settingUpInternalState--; }
 };
 
-static bool isSettingUpInternalState() {
-  return settingUpInternalState;
-}
+static bool isSettingUpInternalState() { return settingUpInternalState; }
 
-struct StartMemCallback : public libmemintercept::MemCallback {
-};
+struct StartMemCallback : public libmemintercept::MemCallback {};
 static StartMemCallback startCallback;
 } // namespace
 
@@ -30,13 +27,14 @@ void createAndInstallMemCallback(MemCallback *(*createCallback)()) {
   MemCallback *c = createCallback();
   startCallback.chainUpNext(c);
 }
-}
+} // namespace libmemintercept
 
 static void *(*real_malloc)(size_t) = nullptr;
+static void *(*real_calloc)(size_t, size_t) = nullptr;
+static void *(*real_realloc)(void *, size_t) = nullptr;
 static void (*real_free)(void *) = nullptr;
 
-template<typename T>
-static void loadRealImplIfNeeded(T &t, const char *name) {
+template <typename T> static void loadRealImplIfNeeded(T &t, const char *name) {
   if (t)
     return;
 
@@ -57,11 +55,43 @@ void *malloc(size_t size) {
 
   LOAD_REAL_IMPL(malloc);
   void *x = real_malloc(size);
-  if (!isSettingUpInternalState()) {
+  if (x && !isSettingUpInternalState()) {
     InitGuard initGuard;
     libmemintercept::MemCallback *cb = &startCallback;
     do {
       cb->memoryAllocated(x, size);
+      cb = cb->getNext();
+    } while (cb);
+  }
+  return x;
+}
+
+void *calloc(size_t num, size_t size) {
+  std::lock_guard guard(internalStateMutex);
+
+  LOAD_REAL_IMPL(calloc);
+  void *x = real_calloc(num, size);
+  if (x && !isSettingUpInternalState()) {
+    InitGuard initGuard;
+    libmemintercept::MemCallback *cb = &startCallback;
+    do {
+      cb->memoryAllocated(x, num * size);
+      cb = cb->getNext();
+    } while (cb);
+  }
+  return x;
+}
+
+void *realloc(void *p, size_t size) {
+  std::lock_guard guard(internalStateMutex);
+
+  LOAD_REAL_IMPL(realloc);
+  void *x = real_realloc(p, size);
+  if (x && !isSettingUpInternalState()) {
+    InitGuard initGuard;
+    libmemintercept::MemCallback *cb = &startCallback;
+    do {
+      cb->memoryReallocated(p, x, size);
       cb = cb->getNext();
     } while (cb);
   }

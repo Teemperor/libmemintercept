@@ -1,6 +1,4 @@
-#include <cstdlib>
 #include <cstdio>
+#include <cstdlib>
 
-int main() {
-  printf("sanity check\n");
-}
+int main() { printf("sanity check\n"); }
